@@ -1,100 +1,13 @@
 import random
+from flask import Flask, jsonify, request
+import time
+import json
 
+app = Flask(__name__)
 lettres = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
-pendu = [
-    """
-       
-       
-       
-       
-       
-       
-       
-    ==============
-    """,
-    """
-       
-       |
-       |
-       |
-       |
-       |
-       |
-    ==============
-    """,
-    """
-       +-------+
-       |
-       |
-       |
-       |
-       |
-       |
-    ==============
-    """,
-    """
-       +-------+
-       |       |
-       |       O
-       |
-       |
-       |
-       |
-    ==============
-    """
-        ,
-    """
-       +-------+
-       |       |
-       |       O
-       |       |
-       |
-       |
-       |
-    ==============
-    """,
-    """
-       +-------+
-       |       |
-       |       O
-       |     --|
-       |
-       |
-       |
-    ==============
-    """,
-    """
-       +-------+
-       |       |
-       |       O
-       |     --|--
-       |
-       |
-       |
-    ==============
-    """,
-    """
-       +-------+
-       |       |
-       |       O
-       |     --|--
-       |      |
-       |     /
-       |
-    ==============
-    """,
-    """
-       +-------+
-       |       |
-       |       O
-       |     --|--
-       |      | |
-       |     /  /
-       |
-    ==============
-    """
-    ]
+games = {
+}
 
 def liste_mots(L):
     f = []
@@ -110,108 +23,113 @@ with open("mots.csv","r",encoding="utf8") as f:
         motVerifLong = ligne.replace("\n","")
         table_mots.append([motVerifLong])
         ligne = f.readline()
-
 table_mots = liste_mots(table_mots)
 
 # Jeu :
 
-# 336531 -> 336437 mots
 
-essais = 0
-lettresTrouvees = " "
-lettresErreurs = ""
-motAffiche = ""
-victoire = False
-choixUser = ""
+def actuParties():
+    global games
+    for room in games.keys():
+        winPlayers = []
+        if games[room]["actualWord"] == "":
+            games[room]["actualWord"] = random.choice(table_mots)
+        for player in games[room]["players"].keys():
+            games[room]["players"][player]["hintWord"] = ""
+            for i in games[room]["actualWord"]:
+                if i in games[room]["players"][player]["found"]:
+                    games[room]["players"][player]["hintWord"] += i
+                else:
+                    games[room]["players"][player]["hintWord"] += "-"
+            if games[room]["players"][player]["hintWord"] == games[room]["actualWord"]:
+                games[room]["players"][player]["victory"] = time.time()
+            if games[room]["players"][player]["victory"] != False:
+                winPlayers.append([player, games[room]["players"][player]["victory"]])
+        if len(winPlayers) >= len(games[room]["players"].keys()):
+            for player in games[room]["players"].keys():
+                games[room]["players"][player]["score"] += 1
+            games[room]["players"] = {i:{"score":games[room]["players"][player]["score"], "hintWord":"", "attempts":0, "found":" ", "errors":"", "victory":False} for i in games[room]["players"].keys()}
+            actuParties()
 
-motchoisi = random.choice(table_mots)
+def essai(room, pseudo, car):
+    global games
 
-def robot(liste, viewWord, foire, reussi):
-    newListeBot = []
-    etude = ""
-    indicesDicWnown = {i:"-" for i in range(len(viewWord))}
-    for i in liste:
-        if len(i) == len(viewWord):
-            newListeBot.append(i)
-    
-    for i in range(len(viewWord)):
-        if viewWord[i] != "-":
-            indicesDicWnown[i] = viewWord[i]
-
-    finalListBot = []
-
-    for motPotentiel in newListeBot:
-        scoreforWord = 0
-        scoreforWordMax = 0
-        erreurDeLettre = False
-        for indice,valeur in indicesDicWnown.items():
-            if valeur != "-":
-                scoreforWordMax += 1 
-                if motPotentiel[indice] == valeur:
-                    scoreforWord +=1
-        if scoreforWord == scoreforWordMax:
-            for lettreFoiree in foire:
-                if lettreFoiree in motPotentiel:
-                    erreurDeLettre = True
-
-            if not(erreurDeLettre):
-                finalListBot.append(motPotentiel)
-
-    newListeBot = []
-
-    if viewWord == len(viewWord)*"-":
-        return finalListBot
-
-    for motPotentiel in finalListBot:
-        for caractAffiche in viewWord:
-            for caractPotentiel in motPotentiel:
-                if not(caractAffiche == "-" and caractPotentiel in reussi):
-                    if not(motPotentiel in newListeBot):
-                        newListeBot.append(motPotentiel)
-
-
-    return newListeBot
-
-def essai():
-    global essais,lettresTrouvees,lettresErreurs,motAffiche,choixUser
-
-    motAffiche = ""
-    choixUser = ""
-
-    for i in motchoisi:
-        if i in lettresTrouvees:
-            motAffiche += i
-        else:
-            motAffiche += "-"
-    if motAffiche == motchoisi:
-        return True
-
-    #print(motchoisi)
-    print(robot(table_mots,motAffiche,lettresErreurs,lettresTrouvees))
-    print(pendu[essais])
-    print(motAffiche)
-    if lettresErreurs != "":
-        print("Erreurs : " + lettresErreurs)
-
-
-    while not(choixUser in lettres) or not(len(choixUser) == 1) or choixUser in lettresTrouvees or choixUser in lettresErreurs:
-        choixUser = input("Entrez une lettre : ")
-    print(20*"*")
-
-    if choixUser in motchoisi:
-        lettresTrouvees += choixUser
+    if car in games[room]["actualWord"]:
+        games[room]["players"][pseudo]["found"] += car
     else:
-        lettresErreurs += choixUser
-        essais += 1
-        return False
+        games[room]["players"][pseudo]["errors"] += car
+        games[room]["players"][pseudo]["attempts"] += 1
 
 
-while essais < 8 and not(victoire):
-    victoire = essai()
 
-if victoire == True:
-    print("Félicitations ! Tu a gagné !")
-    print("Le mot était bien " + motchoisi)
-else:
-    print("Tu a perdu...")
-    print("Le mot était : " + motchoisi)
+@app.route('/test', methods=['GET'])
+def test():
+    return jsonify({'message': 'OK', 'time':str(time())})
+
+@app.route('/join', methods=['POST'])
+def join():
+    global games
+    if ('roomCode' in request.form) and ('pseudo' in request.form):
+        try:
+            room = request.form['roomCode']
+            pseudo = request.form['pseudo']
+            if not(room in [i for i in games.keys()]):
+                games[room] = {"actualWord":"","players":{}}
+            if not(pseudo in [i for i in games[room]["players"].keys()]):
+                games[room]["players"][pseudo] = {"score":0, "hintWord":"", "attempts":0, "found":" ", "errors":"", "victory":False}
+            actuParties()
+            return jsonify({'roomCode': room, "players":{i:(games[room]["players"][i]["score"],games[room]["players"][i]["victory"]) for i in games[room]["players"].keys()}, "personal":games[room]["players"][pseudo]})
+        except:
+            return jsonify({'error': 'Invalid data'})
+    else:
+        return jsonify({'error': 'Room code or pseudo is missing'})
+
+@app.route('/refresh', methods=['POST'])
+def refresh():
+    global games
+    if ('roomCode' in request.form) and ('pseudo' in request.form):
+        try:
+            room = request.form['roomCode']
+            pseudo = request.form['pseudo']
+            actuParties()
+            return jsonify({'roomCode': room, "players":{i:(games[room]["players"][i]["score"],games[room]["players"][i]["victory"]) for i in games[room]["players"].keys()}, "personal":games[room]["players"][pseudo]})
+        except:
+            return jsonify({'error': 'Invalid data'})
+    else:
+        return jsonify({'error': 'Room code or pseudo is missing'})
+
+@app.route('/play', methods=['POST'])
+def play():
+    global games
+    if ('roomCode' in request.form) and ('pseudo' in request.form) and ('car' in request.form):
+        try:
+            room = request.form['roomCode']
+            pseudo = request.form['pseudo']
+            car = request.form['car']
+            essai(room, pseudo, car)
+            actuParties()
+            return jsonify({'roomCode': room, "players":{i:(games[room]["players"][i]["score"],games[room]["players"][i]["victory"]) for i in games[room]["players"].keys()}, "personal":games[room]["players"][pseudo]})
+        except:
+            return jsonify({'error': 'Invalid data'})
+    else:
+        return jsonify({'error': 'Room code or pseudo is missing'})
+
+@app.route('/win', methods=['POST'])
+def win():
+    global games
+    if ('roomCode' in request.form) and ('pseudo' in request.form):
+        try:
+            room = request.form['roomCode']
+            pseudo = request.form['pseudo']
+            games[room]["players"][pseudo]["victory"] = time.time()
+            actuParties()
+            return jsonify({'roomCode': room, "players":{i:(games[room]["players"][i]["score"],games[room]["players"][i]["victory"]) for i in games[room]["players"].keys()}, "personal":games[room]["players"][pseudo]})
+        except Exception as e:
+            a = f"Error : {e}"
+            return jsonify({'error': a})
+    else:
+        return jsonify({'error': 'Room code or pseudo is missing'})
+
+
+if __name__ == '__main__':
+    app.run(host='192.168.1.92', port=5000)
